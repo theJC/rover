@@ -44,6 +44,11 @@ pub trait Report {
         let config_path = self.machine_id_config()?;
         get_or_write_machine_id(&config_path)
     }
+
+    /// checks if anonymous usage data should be reported for only release builds.
+    fn should_debug_builds_report(&self) -> bool {
+        false
+    }
 }
 
 fn get_or_write_machine_id(path: &PathBuf) -> Result<Uuid, SputnikError> {
