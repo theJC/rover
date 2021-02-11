@@ -1,8 +1,9 @@
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Display, Formatter};
 
 use atty::{self, Stream};
 use prettytable::{cell, row, Table};
 use rover_client::query::subgraph::list::ListDetails;
+use url::Url;
 
 /// RoverStdout defines all of the different types of data that are printed
 /// to `stdout`. Every one of Rover's commands should return `anyhow::Result<RoverStdout>`
@@ -14,15 +15,28 @@ use rover_client::query::subgraph::list::ListDetails;
 /// return something that is not described well in this enum, it should be added.
 #[derive(Clone, PartialEq, Debug)]
 pub enum RoverStdout {
+    ProfileList(Vec<String>),
     SDL(String),
     SchemaHash(String),
     SubgraphList(ListDetails),
+    Changes {
+        changes: Vec<Change>,
+        url: Option<Url>,
+    },
     None,
 }
 
 impl RoverStdout {
     pub fn print(&self) {
         match self {
+            RoverStdout::ProfileList(profiles) => {
+                if atty::is(Stream::Stdout) {
+                    tracing::info!("Profiles:");
+                }
+                for profile in profiles {
+                    println!("{}", profile);
+                }
+            }
             RoverStdout::SDL(sdl) => {
                 // we check to see if stdout is redirected
                 // if it is, we don't print the content descriptor
@@ -70,7 +84,47 @@ impl RoverStdout {
                     details.root_url, details.graph_name
                 );
             }
+            RoverStdout::Changes { changes, url } => {
+                if !changes.is_empty() {
+                    let mut table = Table::new();
+                    table.add_row(row!["Change", "Code", "Description"]);
+
+                    for change in changes {
+                        table.add_row(row![
+                            change.change_severity,
+                            change.code,
+                            change.description
+                        ]);
+                    }
+
+                    println!("{}", table);
+                }
+
+                if let Some(url) = url {
+                    println!("View full details at {}", url);
+                }
+            }
             RoverStdout::None => (),
         }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Change {
+    pub change_severity: ChangeSeverity,
+    pub code: String,
+    pub description: String,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum ChangeSeverity {
+    Pass,
+    Fail,
+}
+
+impl Display for ChangeSeverity {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        let s = format!("{:?}", &self).to_uppercase();
+        write!(formatter, "{}", s)
     }
 }

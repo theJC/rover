@@ -85,9 +85,8 @@ impl From<&mut anyhow::Error> for Metadata {
                 }
                 HoustonProblem::CouldNotCreateConfigHome(_)
                 | HoustonProblem::DefaultConfigDirNotFound
-                | HoustonProblem::InvalidOverrideConfigDir(_) => {
-                    (Some(Suggestion::SetConfigHome), None)
-                }
+                | HoustonProblem::InvalidOverrideConfigDir(_)
+                | HoustonProblem::NoProfilesFound => (Some(Suggestion::SetConfigHome), None),
                 HoustonProblem::NoConfigFound(_) => {
                     let code = None;
                     let suggestion = if env::var_os(RoverEnvKey::ConfigHome.to_string()).is_some() {

@@ -112,7 +112,12 @@ impl Profile {
                 }
             }
         }
-        Ok(profiles)
+
+        if profiles.is_empty() {
+            Err(HoustonProblem::NoProfilesFound)
+        } else {
+            Ok(profiles)
+        }
     }
 }
 

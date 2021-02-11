@@ -1,10 +1,15 @@
+use core::num;
+
 use prettytable::{cell, row, Table};
 use serde::Serialize;
 use structopt::StructOpt;
 
 use rover_client::query::graph::check;
 
-use crate::command::RoverStdout;
+use crate::command::{
+    output::{Change, ChangeSeverity},
+    RoverStdout,
+};
 use crate::utils::client::StudioClientConfig;
 use crate::utils::git::GitContext;
 use crate::utils::loaders::load_schema_from_flag;
@@ -12,7 +17,7 @@ use crate::utils::parsers::{
     parse_graph_ref, parse_query_count_threshold, parse_query_percentage_threshold,
     parse_schema_source, parse_validation_period, GraphRef, SchemaSource, ValidationPeriod,
 };
-use crate::Result;
+use crate::{anyhow, Result};
 
 #[derive(Debug, Serialize, StructOpt)]
 pub struct Check {
@@ -78,7 +83,7 @@ impl Check {
         )?;
 
         tracing::info!(
-            "Validated the proposed subgraph against metrics from {}",
+            "Validated the proposed graph against metrics from {}",
             &self.graph
         );
 
@@ -91,43 +96,42 @@ impl Check {
 
         tracing::info!("{}", &msg);
 
-        let num_failures = print_changes(&res.changes);
-
-        if let Some(url) = res.target_url {
-            tracing::info!("View full details here");
-            tracing::info!("{}", url.to_string());
-        }
+        let (changes, num_failures) = get_changes(&res.changes);
 
         match num_failures {
-            0 => Ok(RoverStdout::None),
-            1 => Err(anyhow::anyhow!("Encountered 1 failure.").into()),
-            _ => Err(anyhow::anyhow!("Encountered {} failures.", num_failures).into()),
+            0 => Ok(RoverStdout::Changes {
+                changes,
+                url: res.target_url,
+            }),
+            1 => Err(anyhow!("Encountered 1 failure.").into()),
+            _ => Err(anyhow!("Encountered {} failures.", num_failures).into()),
         }
     }
 }
 
-fn print_changes(
+fn get_changes(
     checks: &[check::check_schema_query::CheckSchemaQueryServiceCheckSchemaDiffToPreviousChanges],
-) -> u64 {
+) -> (Vec<Change>, i64) {
+    let mut changes = Vec::new();
     let mut num_failures = 0;
 
     if !checks.is_empty() {
-        let mut table = Table::new();
-        table.add_row(row!["Change", "Code", "Description"]);
         for check in checks {
-            let change = match check.severity {
-                check::check_schema_query::ChangeSeverity::NOTICE => "PASS",
+            let change_severity = match check.severity {
+                check::check_schema_query::ChangeSeverity::NOTICE => ChangeSeverity::Pass,
                 check::check_schema_query::ChangeSeverity::FAILURE => {
                     num_failures += 1;
-                    "FAIL"
+                    ChangeSeverity::Fail
                 }
                 _ => unreachable!("Unknown change severity"),
             };
-            table.add_row(row![change, check.code, check.description]);
+            changes.push(Change {
+                change_severity,
+                code: check.code.clone(),
+                description: check.description.clone(),
+            });
         }
-
-        eprintln!("{}", table);
     }
 
-    num_failures
+    (changes, num_failures)
 }

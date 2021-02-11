@@ -25,6 +25,10 @@ pub enum HoustonProblem {
     #[error("There is no profile named \"{0}\".")]
     ProfileNotFound(String),
 
+    /// NoProfilesFound occurs when no profiles have been created yet.
+    #[error("No profiles have been created yet.")]
+    NoProfilesFound,
+
     /// NoNonSensitiveConfigFound occurs when non-sensitive config can't be found for a profile.
     #[error("No non-sensitive configuration found for profile \"{0}\".")]
     NoNonSensitiveConfigFound(String),
