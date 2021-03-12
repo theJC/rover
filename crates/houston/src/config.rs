@@ -3,7 +3,7 @@ use directories_next::ProjectDirs;
 use crate::HoustonProblem;
 
 use camino::{Utf8Path, Utf8PathBuf};
-use std::fs;
+use std::{convert::TryFrom, fs};
 
 /// Config allows end users to override default settings
 /// usually determined by Houston. They are intended to
@@ -45,11 +45,7 @@ impl Config {
                     .config_dir()
                     .to_path_buf();
 
-                Ok(Utf8PathBuf::from_path_buf(project_dirs).map_err(|pb| {
-                    HoustonProblem::PathNotUnicode {
-                        path_display: pb.display().to_string(),
-                    }
-                })?)
+                Ok(Utf8PathBuf::try_from(project_dirs)?)
             }
         }?;
 
@@ -77,10 +73,11 @@ mod tests {
     use super::Config;
     use assert_fs::TempDir;
     use camino::Utf8PathBuf;
+    use std::convert::TryFrom;
     #[test]
     fn it_can_clear_global_config() {
         let tmp_home = TempDir::new().unwrap();
-        let tmp_path = Utf8PathBuf::from_path_buf(tmp_home.path().to_path_buf()).unwrap();
+        let tmp_path = Utf8PathBuf::try_from(tmp_home.path().to_path_buf()).unwrap();
         let config = Config::new(Some(&tmp_path), None).unwrap();
         assert!(config.home.exists());
         config.clear().unwrap();

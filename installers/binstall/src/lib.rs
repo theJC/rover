@@ -19,6 +19,8 @@
 use camino::Utf8PathBuf;
 use directories_next::BaseDirs;
 
+use std::convert::TryFrom;
+
 mod error;
 mod install;
 mod system;
@@ -34,13 +36,7 @@ pub(crate) use system::windows;
 
 pub(crate) fn get_home_dir_path() -> Result<Utf8PathBuf, InstallerError> {
     if let Some(base_dirs) = BaseDirs::new() {
-        Ok(
-            Utf8PathBuf::from_path_buf(base_dirs.home_dir().to_path_buf()).map_err(|pb| {
-                InstallerError::PathNotUnicode {
-                    path_display: pb.display().to_string(),
-                }
-            })?,
-        )
+        Ok(Utf8PathBuf::try_from(base_dirs.home_dir().to_path_buf())?)
     } else if cfg!(windows) {
         Err(InstallerError::NoHomeWindows)
     } else {
@@ -63,17 +59,19 @@ mod tests {
     use camino::Utf8PathBuf;
 
     #[cfg(not(windows))]
+    use std::convert::TryFrom;
+
+    #[cfg(not(windows))]
     #[test]
     #[serial]
     fn install_bins_creates_rover_home() {
         let fixture = TempDir::new().unwrap();
-        let base_dir = Utf8PathBuf::from_path_buf(fixture.path().to_path_buf()).unwrap();
+        let base_dir = Utf8PathBuf::try_from(fixture.path().to_path_buf()).unwrap();
         let install_path = Installer {
             binary_name: "test".to_string(),
             force_install: false,
             override_install_path: Some(base_dir.clone()),
-            executable_location: Utf8PathBuf::from_path_buf(std::env::current_exe().unwrap())
-                .unwrap(),
+            executable_location: Utf8PathBuf::try_from(std::env::current_exe().unwrap()).unwrap(),
         }
         .install()
         .unwrap()

@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use regex::bytes::Regex;
 
 use std::{
+    convert::TryFrom,
     env, fs,
-    path::PathBuf,
     process::{Command, Output},
     str,
 };
@@ -108,17 +108,14 @@ fn get_binstall_scripts_root() -> Utf8PathBuf {
 /// these steps are only _required_ when running in release mode
 fn prep_npm(is_release_build: bool) -> Result<()> {
     let npm_install_path = match which::which("npm") {
-        Ok(install_path) => {
-            Some(Utf8PathBuf::from_path_buf(install_path).map_err(|pb| invalid_path_buf(&pb))?)
-        }
+        Ok(install_path) => Some(Utf8PathBuf::try_from(install_path)?),
         Err(_) => None,
     };
 
     // we have to work with absolute paths like this because of windows :P
-    let current_dir = Utf8PathBuf::from_path_buf(
+    let current_dir = Utf8PathBuf::try_from(
         env::current_dir().context("Could not find the current directory.")?,
-    )
-    .map_err(|pb| invalid_path_buf(&pb))?;
+    )?;
 
     let npm_dir = current_dir.join("installers").join("npm");
 
@@ -159,10 +156,6 @@ fn prep_npm(is_release_build: bool) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn invalid_path_buf(pb: &PathBuf) -> Error {
-    anyhow!("Current directory \"{}\" is not valid UTF-8", pb.display())
 }
 
 fn process_command_output(output: &Output) -> Result<()> {
