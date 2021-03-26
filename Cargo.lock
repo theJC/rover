@@ -49,6 +49,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81cddc5f91628367664cc7c69714ff08deee8a3efc54623011c772544d7b2767"
 
 [[package]]
+name = "arbitrary"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "698b65a961a9d730fb45b6b0327e20207810c9f61ee421b082b27ba003f49e2b"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1882,6 +1888,13 @@ version = "0.1.0"
 dependencies = [
  "indoc",
  "pretty_assertions",
+]
+
+[[package]]
+name = "sdl-smith"
+version = "0.1.0"
+dependencies = [
+ "arbitrary",
 ]
 
 [[package]]
