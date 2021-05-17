@@ -30,24 +30,47 @@ pub fn run(
     client: &StudioClient,
 ) -> Result<PublishPartialSchemaResponse, RoverClientError> {
     let graph = variables.graph_id.clone();
+    let invalid_variant = variables.graph_variant.clone();
     let data = client.post::<PublishPartialSchemaMutation>(variables)?;
-    let publish_response = get_publish_response_from_data(data, graph)?;
+    let publish_response = get_publish_response_from_data(data, graph, invalid_variant)?;
     Ok(build_response(publish_response))
 }
 
-// alias this return type since it's disgusting
 type UpdateResponse = publish_partial_schema_mutation::PublishPartialSchemaMutationServiceUpsertImplementingServiceAndTriggerComposition;
+type ImplementingServices = publish_partial_schema_mutation::PublishPartialSchemaMutationServiceServiceImplementingServices;
 
 fn get_publish_response_from_data(
     data: publish_partial_schema_mutation::ResponseData,
     graph: String,
+    invalid_variant: String
 ) -> Result<UpdateResponse, RoverClientError> {
-    let service_data = match data.service {
-        Some(data) => data,
-        None => return Err(RoverClientError::NoService { graph }),
-    };
+    let service = data.service.ok_or(RoverClientError::NoService { graph: graph.clone() })?;
+    match service.service.implementing_services {
+        Some(typename) => match typename {
+            ImplementingServices::FederatedImplementingServices => {
+                Ok(())
+            }
+            ImplementingServices::NonFederatedImplementingService => {
+                Err(RoverClientError::ExpectedFederatedGraph { graph })
+            }
+        },
+        None => {
+            let mut valid_variants = Vec::new();
 
-    Ok(service_data.upsert_implementing_service_and_trigger_composition)
+            for variant in service.service.variants {
+                valid_variants.push(variant.name)
+            }
+            // TODO: fix front end url root once it's available in mutations
+            Err(RoverClientError::NoSchemaForVariant {
+                graph,
+                invalid_variant,
+                valid_variants,
+                frontend_url_root: "https://studio.apollographql.com".to_string(),
+            })
+        },
+    }?;
+
+    Ok(service.upsert_implementing_service_and_trigger_composition)
 }
 
 fn build_response(publish_response: UpdateResponse) -> PublishPartialSchemaResponse {

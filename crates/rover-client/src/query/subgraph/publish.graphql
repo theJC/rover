@@ -25,5 +25,13 @@ mutation PublishPartialSchemaMutation(
       didUpdateGateway: updatedGateway
       serviceWasCreated: wasCreated
     }
+    service {
+      implementingServices(graphVariant: $variant) {
+        __typename
+      }
+      variants {
+        name
+      }
+    }
   }
 }

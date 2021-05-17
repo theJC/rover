@@ -52,7 +52,7 @@ impl Delete {
             let delete_dry_run_response = delete::run(
                 delete::delete_service_mutation::Variables {
                     graph_id: self.graph.name.clone(),
-                    graph_variant: self.graph.variant.clone(),
+                    variant: self.graph.variant.clone(),
                     name: self.subgraph.clone(),
                     dry_run: true,
                 },
@@ -71,7 +71,7 @@ impl Delete {
         let delete_response = delete::run(
             delete::delete_service_mutation::Variables {
                 graph_id: self.graph.name.clone(),
-                graph_variant: self.graph.variant.clone(),
+                variant: self.graph.variant.clone(),
                 name: self.subgraph.clone(),
                 dry_run: false,
             },

@@ -34,21 +34,45 @@ pub fn run(
     client: &StudioClient,
 ) -> Result<DeleteServiceResponse, RoverClientError> {
     let graph = variables.graph_id.clone();
-    let response_data = client.post::<DeleteServiceMutation>(variables)?;
-    let data = get_delete_data_from_response(response_data, graph)?;
+    let invalid_variant = variables.variant.clone();
+    let data = client.post::<DeleteServiceMutation>(variables)?;
+    let data = get_delete_data_from_response(data, graph, invalid_variant)?;
     Ok(build_response(data))
 }
 
-fn get_delete_data_from_response(
-    response_data: delete_service_mutation::ResponseData,
-    graph: String,
-) -> Result<RawMutationResponse, RoverClientError> {
-    let service_data = match response_data.service {
-        Some(data) => Ok(data),
-        None => Err(RoverClientError::NoService { graph }),
-    }?;
+type ImplementingServices = delete_service_mutation::DeleteServiceMutationServiceServiceImplementingServices;
 
-    Ok(service_data.remove_implementing_service_and_trigger_composition)
+fn get_delete_data_from_response(
+    data: delete_service_mutation::ResponseData,
+    graph: String,
+    invalid_variant: String
+) -> Result<RawMutationResponse, RoverClientError> {
+    let service = data.service.ok_or(RoverClientError::NoService { graph: graph.clone() })?;
+    match service.service.implementing_services {
+        Some(typename) => match typename {
+            ImplementingServices::FederatedImplementingServices => {
+                Ok(())
+            }
+            ImplementingServices::NonFederatedImplementingService => {
+                Err(RoverClientError::ExpectedFederatedGraph { graph })
+            }
+        },
+        None => {
+            let mut valid_variants = Vec::new();
+
+            for variant in service.service.variants {
+                valid_variants.push(variant.name)
+            }
+            // TODO: fix front end url root once it's available in mutations
+            Err(RoverClientError::NoSchemaForVariant {
+                graph,
+                invalid_variant,
+                valid_variants,
+                frontend_url_root: "https://studio.apollographql.com".to_string(),
+            })
+        },
+    }?;
+    Ok(service.remove_implementing_service_and_trigger_composition)
 }
 
 fn build_response(response: RawMutationResponse) -> DeleteServiceResponse {
@@ -76,7 +100,7 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    type RawCompositionErrrors = delete_service_mutation::DeleteServiceMutationServiceRemoveImplementingServiceAndTriggerCompositionErrors;
+    type RawCompositionErrors = delete_service_mutation::DeleteServiceMutationServiceRemoveImplementingServiceAndTriggerCompositionErrors;
 
     #[test]
     fn get_delete_data_from_response_works() {
@@ -89,22 +113,26 @@ mod tests {
                         { "message": "boo" }
                     ],
                     "updatedGateway": false,
+                },
+                "service": {
+                    "implementingServices": [],
+                    "variants": []
                 }
             }
         });
         let data: delete_service_mutation::ResponseData =
             serde_json::from_value(json_response).unwrap();
-        let output = get_delete_data_from_response(data, "mygraph".to_string());
+        let output = get_delete_data_from_response(data, "mygraph".to_string(), "variant".to_string());
 
         assert!(output.is_ok());
 
         let expected_response = RawMutationResponse {
             errors: vec![
-                Some(RawCompositionErrrors {
+                Some(RawCompositionErrors {
                     message: "wow".to_string(),
                 }),
                 None,
-                Some(RawCompositionErrrors {
+                Some(RawCompositionErrors {
                     message: "boo".to_string(),
                 }),
             ],
@@ -117,11 +145,11 @@ mod tests {
     fn build_response_works_with_successful_responses() {
         let response = RawMutationResponse {
             errors: vec![
-                Some(RawCompositionErrrors {
+                Some(RawCompositionErrors {
                     message: "wow".to_string(),
                 }),
                 None,
-                Some(RawCompositionErrrors {
+                Some(RawCompositionErrors {
                     message: "boo".to_string(),
                 }),
             ],

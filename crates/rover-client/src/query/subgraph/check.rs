@@ -16,23 +16,24 @@ type Timestamp = String;
 )]
 /// This struct is used to generate the module containing `Variables` and
 /// `ResponseData` structs.
-/// Snake case of this name is the mod name. i.e. check_partial_schema_query
-pub struct CheckPartialSchemaQuery;
+/// Snake case of this name is the mod name. i.e. check_partial_schema_mutation
+pub struct CheckPartialSchemaMutation;
 
 /// The main function to be used from this module.
 /// This function takes a proposed schema and validates it against a published
 /// schema.
 pub fn run(
-    variables: check_partial_schema_query::Variables,
+    variables: check_partial_schema_mutation::Variables,
     client: &StudioClient,
 ) -> Result<CheckResponse, RoverClientError> {
     let graph = variables.graph_id.clone();
-    let data = client.post::<CheckPartialSchemaQuery>(variables)?;
-    get_check_response_from_data(data, graph)
+    let invalid_variant = variables.variant.clone();
+    let data = client.post::<CheckPartialSchemaMutation>(variables)?;
+    get_check_response_from_data(data, graph, invalid_variant)
 }
 
 pub enum CheckResponse {
-    CompositionErrors(Vec<check_partial_schema_query::CheckPartialSchemaQueryServiceCheckPartialSchemaCompositionValidationResultErrors>),
+    CompositionErrors(Vec<check_partial_schema_mutation::CheckPartialSchemaMutationServiceCheckPartialSchemaCompositionValidationResultErrors>),
     CheckResult(CheckResult)
 }
 
@@ -40,20 +41,48 @@ pub enum CheckResponse {
 pub struct CheckResult {
     pub target_url: Option<Url>,
     pub number_of_checked_operations: i64,
-    pub change_severity: check_partial_schema_query::ChangeSeverity,
-    pub changes: Vec<check_partial_schema_query::CheckPartialSchemaQueryServiceCheckPartialSchemaCheckSchemaResultDiffToPreviousChanges>,
+    pub change_severity: check_partial_schema_mutation::ChangeSeverity,
+    pub changes: Vec<check_partial_schema_mutation::CheckPartialSchemaMutationServiceCheckPartialSchemaCheckSchemaResultDiffToPreviousChanges>,
 }
 
+type ImplementingServices = check_partial_schema_mutation::CheckPartialSchemaMutationServiceServiceImplementingServices;
+
 fn get_check_response_from_data(
-    data: check_partial_schema_query::ResponseData,
+    data: check_partial_schema_mutation::ResponseData,
     graph: String,
+    invalid_variant: String
 ) -> Result<CheckResponse, RoverClientError> {
-    let service = data.service.ok_or(RoverClientError::NoService { graph })?;
+    let service = data.service.ok_or(RoverClientError::NoService { graph: graph.clone() })?;
+    
+    match service.service.implementing_services {
+        Some(typename) => match typename {
+            ImplementingServices::FederatedImplementingServices => {
+                Ok(())
+            }
+            ImplementingServices::NonFederatedImplementingService => {
+                Err(RoverClientError::ExpectedFederatedGraph { graph })
+            }
+        },
+        None => {
+            let mut valid_variants = Vec::new();
+
+            for variant in service.service.variants {
+                valid_variants.push(variant.name)
+            }
+            // TODO: fix front end url root once it's available in mutations
+            Err(RoverClientError::NoSchemaForVariant {
+                graph,
+                invalid_variant,
+                valid_variants,
+                frontend_url_root: "https://studio.apollographql.com".to_string(),
+            })
+        },
+    }?;
 
     // for some reason this is a `Vec<Option<CompositionError>>`
     // we convert this to just `Vec<CompositionError>` because the `None`
     // errors would be useless.
-    let composition_errors: Vec<check_partial_schema_query::CheckPartialSchemaQueryServiceCheckPartialSchemaCompositionValidationResultErrors> = service
+    let composition_errors: Vec<check_partial_schema_mutation::CheckPartialSchemaMutationServiceCheckPartialSchemaCompositionValidationResultErrors> = service
         .check_partial_schema
         .composition_validation_result
         .errors;

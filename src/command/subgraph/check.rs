@@ -2,8 +2,8 @@ use ansi_term::Colour::Red;
 use serde::Serialize;
 use structopt::StructOpt;
 
-use crate::{anyhow, error::RoverError, Result, Suggestion};
-use rover_client::query::{config::is_federated, subgraph::check};
+use crate::Result;
+use rover_client::query::subgraph::check;
 
 use crate::command::RoverStdout;
 use crate::utils::client::StudioClientConfig;
@@ -65,38 +65,20 @@ impl Check {
 
         let sdl = load_schema_from_flag(&self.schema, std::io::stdin())?;
 
-        // This response is used to check whether or not the current graph is federated.
-        let federated_response = is_federated::run(
-            is_federated::is_federated_graph::Variables {
-                graph_id: self.graph.name.clone(),
-                graph_variant: self.graph.variant.clone(),
-            },
-            &client,
-        )?;
-
-        // We don't want to run subgraph check on a non-federated graph, so
-        // return an error and recommend running graph check instead.
-        if !federated_response.result {
-            let err = anyhow!("Not able to run subgraph check on a non-federated graph.");
-            let mut err = RoverError::new(err);
-            err.set_suggestion(Suggestion::UseFederatedGraph);
-            return Err(err);
-        }
-
-        let partial_schema = check::check_partial_schema_query::PartialSchemaInput {
+        let partial_schema = check::check_partial_schema_mutation::PartialSchemaInput {
             sdl: Some(sdl),
             // we never need to send the hash since the back end computes it from SDL
             hash: None,
         };
 
         let res = check::run(
-            check::check_partial_schema_query::Variables {
+            check::check_partial_schema_mutation::Variables {
                 graph_id: self.graph.name.clone(),
                 variant: self.graph.variant.clone(),
                 partial_schema,
                 implementing_service_name: self.subgraph.clone(),
                 git_context: git_context.into(),
-                config: check::check_partial_schema_query::HistoricQueryParameters {
+                config: check::check_partial_schema_mutation::HistoricQueryParameters {
                     query_count_threshold: self.query_count_threshold,
                     query_count_threshold_percentage: self.query_percentage_threshold,
                     from: self.validation_period.clone().unwrap_or_default().from,
@@ -144,8 +126,8 @@ fn handle_checks(check_result: check::CheckResult) -> Result<RoverStdout> {
         table.add_row(row![bc => "Change", "Code", "Description"]);
         for check in check_result.changes {
             let change = match check.severity {
-                check::check_partial_schema_query::ChangeSeverity::NOTICE => "PASS",
-                check::check_partial_schema_query::ChangeSeverity::FAILURE => {
+                check::check_partial_schema_mutation::ChangeSeverity::NOTICE => "PASS",
+                check::check_partial_schema_mutation::ChangeSeverity::FAILURE => {
                     num_failures += 1;
                     "FAIL"
                 }
@@ -173,7 +155,7 @@ fn handle_checks(check_result: check::CheckResult) -> Result<RoverStdout> {
 }
 
 fn handle_composition_errors(
-    composition_errors: &[check::check_partial_schema_query::CheckPartialSchemaQueryServiceCheckPartialSchemaCompositionValidationResultErrors],
+    composition_errors: &[check::check_partial_schema_mutation::CheckPartialSchemaMutationServiceCheckPartialSchemaCompositionValidationResultErrors],
 ) -> Result<RoverStdout> {
     let num_failures = composition_errors.len();
     for error in composition_errors {

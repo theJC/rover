@@ -1,12 +1,12 @@
 mutation DeleteServiceMutation(
   $graphId: ID!
-  $graphVariant: String!
+  $variant: String!
   $name: String!
   $dryRun: Boolean!
 ) {
   service(id: $graphId) {
     removeImplementingServiceAndTriggerComposition(
-      graphVariant: $graphVariant
+      graphVariant: $variant
       name: $name
       dryRun: $dryRun
     ) {
@@ -14,6 +14,14 @@ mutation DeleteServiceMutation(
         message
       }
       updatedGateway
+    }
+    service {
+      implementingServices(graphVariant: $variant) {
+        __typename
+      }
+      variants {
+        name
+      }
     }
   }
 }
