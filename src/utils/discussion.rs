@@ -17,10 +17,12 @@ pub static COMPLETIONS_HELP: &str = r"DISCUSSION:
     Run the command:
 
         $ mkdir -p ~/.local/share/bash-completion/completions
-        $ rover completions bash >> ~/.local/share/bash-completion/completions/rover
 
-    This installs the completion script. You may have to log out and
-    log back in to your shell session for the changes to take effect.
+    Then in one of your shell startup scripts (like `~/.bashrc`), add the following line:
+    rover completions bash >> ~/.local/share/bash-completion/completions/rover
+
+    This will generate a completion script when your shell starts, and will keep up to date with new releases of Rover. 
+    You will have to log out and log back in to your shell session for the changes to take effect.
 
     BASH (macOS/Homebrew):
 
@@ -28,7 +30,12 @@ pub static COMPLETIONS_HELP: &str = r"DISCUSSION:
     With the `bash-completion` brew formula installed, run the command:
 
         $ mkdir -p $(brew --prefix)/etc/bash_completion.d
-        $ rover completions bash > $(brew --prefix)/etc/bash_completion.d/rover.bash-completion
+
+    Then in one of your shell startup scripts (like `~/.bashrc`), add the following line:
+    rover completions bash >> ~/.local/share/bash-completion/completions/rover
+
+    This will generate a completion script when your shell starts, and will keep up to date with new releases of Rover. 
+    You will have to log out and log back in to your shell session for the changes to take effect.
 
     FISH:
 
@@ -36,10 +43,12 @@ pub static COMPLETIONS_HELP: &str = r"DISCUSSION:
     `$HOME/.config/fish/completions`. Run the command:
 
         $ mkdir -p ~/.config/fish/completions
-        $ rover completions fish > ~/.config/fish/completions/rover.fish
 
-    This installs the completion script. You may have to log out and
-    log back in to your shell session for the changes to take effect.
+    Then in your shell startup script (~/.config/fish/config.fish), add the following line:
+    rover completions fish > ~/.config/fish/completions/rover.fish
+
+    This will generate a completion script when your shell starts, and will keep up to date with new releases of Rover. 
+    You will have to log out and log back in to your shell session for the changes to take effect.
 
     ZSH:
 
@@ -60,10 +69,10 @@ pub static COMPLETIONS_HELP: &str = r"DISCUSSION:
 
         fpath+=~/.zfunc
 
-    Now you can install the completions script using the following
-    command:
+    Now you can install the completions script when your shell starts by adding
+    the following lines to your `.zshrc`:
 
-        $ rover completions zsh > ~/.zfunc/_rover
+    rover completions zsh > ~/.zfunc/_rover
 
     You must then either log out and log back in, or simply run
 
@@ -98,7 +107,10 @@ pub static COMPLETIONS_HELP: &str = r"DISCUSSION:
     `${env:USERPROFILE}\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
 
     Next, we either save the completions file into our profile, or
-    into a separate file and source it inside our profile. To save the
-    completions into our profile simply use
+    into a separate file and source it inside our profile. To load the completions when PowerShell
+    starts up, add the following lines to your shell profile:
+    
+    rover completions powershell >> ${env:USERPROFILE}\Documents\WindowsPowerShell\RoverCompletions.ps1
+    . ${env:USERPROFILE}\Documents\WindowsPowerShell\RoverCompletions.ps1";
 
-        PS C:\> rover completions powershell >> ${env:USERPROFILE}\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1";
+// TODO: This doesn't seem to work in PowerShell...
