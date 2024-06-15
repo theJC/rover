@@ -6,6 +6,7 @@ use apollo_federation_types::{
     config::{FederationVersion, SchemaSource, SubgraphConfig, SupergraphConfig},
 };
 use apollo_parser::{cst, Parser};
+use rayon::current_num_threads;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use rover_client::operations::subgraph::fetch::{self, SubgraphFetchInput};
@@ -82,7 +83,7 @@ pub(crate) fn resolve_supergraph_yaml(
                             },
                             FileDescriptorType::Stdin => file.clone(),
                         };
-
+                        eprintln!("rayan reports current_num_threads: {}", current_num_threads());
                         Fs::read_file(relative_schema_path)
                             .map_err(|e| {
                                 let mut err = RoverError::new(e);
